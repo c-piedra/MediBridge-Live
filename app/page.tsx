@@ -9,6 +9,7 @@ import {
   TranslationLimitBanner,
   MyMemoryProgressBar,
 } from "@/components/TranslationUsageBadge";
+import { MonthlyUsageMeter } from "@/components/MonthlyUsageMeter";
 
 export default function Home() {
   const {
@@ -103,6 +104,9 @@ export default function Home() {
             <p>{errorMessage}</p>
           </div>
         )}
+
+        {/* Monthly usage meter — only shown when using Google Translate */}
+        <MonthlyUsageMeter />
 
         {/* MyMemory progress bar — only when using free fallback */}
         <MyMemoryProgressBar />
