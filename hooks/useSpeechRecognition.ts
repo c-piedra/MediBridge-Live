@@ -136,11 +136,18 @@ export function useSpeechRecognition() {
                   )
                 );
               })
-              .catch(() => {
+              .catch((err: unknown) => {
+                const isLimit =
+                  err instanceof Error && err.message === "LIMIT_REACHED";
                 setEntries((prev) =>
                   prev.map((e) =>
                     e.id === entryId
-                      ? { ...e, translatedText: "⚠ Translation unavailable" }
+                      ? {
+                          ...e,
+                          translatedText: isLimit
+                            ? "⚠ Límite diario alcanzado — traducción no disponible"
+                            : "⚠ Traducción no disponible",
+                        }
                       : e
                   )
                 );

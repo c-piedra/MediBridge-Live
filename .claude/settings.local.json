@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/Piedra/Downloads/**)",
+      "Bash(cd /tmp)",
+      "Bash(unzip -o \"C:/Users/Piedra/Downloads/impeccable-main.zip\" -d impeccable-main)",
+      "Bash(unzip -o \"C:/Users/Piedra/Downloads/ui-ux-pro-max-skill-main.zip\" -d ui-ux-pro-max)",
+      "Read(//tmp/impeccable-main/**)",
+      "Read(//tmp/ui-ux-pro-max/ui-ux-pro-max-skill-main/src/**)",
+      "Bash(npm install *)",
+      "Bash(npm run *)"
+    ]
+  }
+}

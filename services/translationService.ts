@@ -1,129 +1,109 @@
 import type { Language, TranslationResult } from "@/types/transcript";
 
 // ---------------------------------------------------------------------------
-// Translation Service
-// ---------------------------------------------------------------------------
-// Primary: MyMemory API — free, no API key required, 1,000 req/day
-//          (register a free email at mymemory.translated.net for 10,000/day)
-//
-// To switch to a premium provider, implement one of the adapters below
-// and replace the call in translateText():
-//   - Google Cloud Translation  →  googleTranslate()
-//   - DeepL API                 →  deeplTranslate()
-//   - Azure Translator          →  azureTranslate()
-//   - OpenAI API (gpt-4o)       →  openaiTranslate()
+// Translation Service — MyMemory free tier
+// Free limit: 1,000 req/day (no key) · 10,000 req/day (free email registered)
+// Docs: https://mymemory.translated.net/doc/spec.php
 // ---------------------------------------------------------------------------
 
-// ---------------------------------------------------------------------------
-// MyMemory — primary free adapter
-// ---------------------------------------------------------------------------
+// ── In-memory usage tracker (cleared on page refresh, never persisted) ──────
+let _requestCount = 0;
+let _limitReached = false;
+
+const _listeners = new Set<() => void>();
+
+function notifyListeners() {
+  _listeners.forEach((fn) => fn());
+}
+
+/** Subscribe to usage changes. Returns unsubscribe function. */
+export function subscribeToUsage(fn: () => void): () => void {
+  _listeners.add(fn);
+  return () => _listeners.delete(fn);
+}
+
+export function getUsageCount(): number {
+  return _requestCount;
+}
+
+export function isLimitReached(): boolean {
+  return _limitReached;
+}
+
+/** Thresholds for the free daily limit */
+export const USAGE_LIMIT = 1000;
+export const USAGE_WARN  = 800;  // 80% — show yellow warning
+export const USAGE_CRIT  = 950;  // 95% — show orange critical
+
+export type UsageLevel = "ok" | "warning" | "critical" | "exceeded";
+
+export function getUsageLevel(): UsageLevel {
+  if (_limitReached || _requestCount >= USAGE_LIMIT) return "exceeded";
+  if (_requestCount >= USAGE_CRIT)                   return "critical";
+  if (_requestCount >= USAGE_WARN)                   return "warning";
+  return "ok";
+}
+
+// ── MyMemory adapter ─────────────────────────────────────────────────────────
+
+/** MyMemory response when the daily free limit is hit */
+const MYMEMORY_LIMIT_MSG = "MYMEMORY WARNING: YOU USED ALL AVAILABLE FREE TRANSLATIONS FOR TODAY";
 
 async function myMemoryTranslate(
   text: string,
   sourceLang: Language,
   targetLang: Language
 ): Promise<TranslationResult> {
-  const langPair = `${sourceLang}|${targetLang}`;
-  const params = new URLSearchParams({ q: text, langpair: langPair });
+  const params = new URLSearchParams({
+    q: text,
+    langpair: `${sourceLang}|${targetLang}`,
+  });
 
-  // Optional: add your registered email to raise the daily limit to 10k
+  // Optional: add your free registered email to raise the limit to 10k/day
   // params.set("de", "your@email.com");
 
   const res = await fetch(
     `https://api.mymemory.translated.net/get?${params.toString()}`
   );
 
-  if (!res.ok) throw new Error(`MyMemory error: ${res.status}`);
+  if (!res.ok) throw new Error(`MyMemory HTTP error: ${res.status}`);
 
   const data = (await res.json()) as {
     responseStatus: number;
     responseData: { translatedText: string };
-    matches?: Array<{ translation: string; quality: string }>;
   };
 
+  // Increment counter and notify UI on every successful API call
+  _requestCount++;
+  notifyListeners();
+
+  // Detect limit-reached message inside the response body
+  if (
+    data.responseData.translatedText.includes(MYMEMORY_LIMIT_MSG) ||
+    data.responseStatus === 429
+  ) {
+    _limitReached = true;
+    notifyListeners();
+    throw new Error("LIMIT_REACHED");
+  }
+
   if (data.responseStatus !== 200 && data.responseStatus !== 206) {
-    throw new Error(`MyMemory returned status ${data.responseStatus}`);
+    throw new Error(`MyMemory status ${data.responseStatus}`);
   }
 
   return { translatedText: data.responseData.translatedText };
 }
 
-// ---------------------------------------------------------------------------
-// Google Cloud Translation adapter (uncomment and configure to use)
-// ---------------------------------------------------------------------------
-// async function googleTranslate(
-//   text: string,
-//   targetLang: Language
-// ): Promise<TranslationResult> {
-//   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_TRANSLATE_API_KEY;
-//   const url = `https://translation.googleapis.com/language/translate/v2?key=${apiKey}`;
-//   const res = await fetch(url, {
-//     method: "POST",
-//     headers: { "Content-Type": "application/json" },
-//     body: JSON.stringify({ q: text, target: targetLang, format: "text" }),
-//   });
-//   if (!res.ok) throw new Error(`Google Translate error: ${res.status}`);
-//   const data = await res.json();
-//   return { translatedText: data.data.translations[0].translatedText };
-// }
+// ── Google Cloud Translation (swap in when ready) ────────────────────────────
+// async function googleTranslate(text, sourceLang, targetLang) { ... }
 
-// ---------------------------------------------------------------------------
-// DeepL adapter (uncomment and configure to use)
-// ---------------------------------------------------------------------------
-// async function deeplTranslate(
-//   text: string,
-//   targetLang: Language
-// ): Promise<TranslationResult> {
-//   const apiKey = process.env.NEXT_PUBLIC_DEEPL_API_KEY;
-//   const targetCode = targetLang === "en" ? "EN-US" : "ES";
-//   const res = await fetch("https://api-free.deepl.com/v2/translate", {
-//     method: "POST",
-//     headers: {
-//       Authorization: `DeepL-Auth-Key ${apiKey}`,
-//       "Content-Type": "application/x-www-form-urlencoded",
-//     },
-//     body: new URLSearchParams({ text, target_lang: targetCode }),
-//   });
-//   if (!res.ok) throw new Error(`DeepL error: ${res.status}`);
-//   const data = await res.json();
-//   return { translatedText: data.translations[0].text };
-// }
+// ── DeepL (swap in when ready) ───────────────────────────────────────────────
+// async function deeplTranslate(text, sourceLang, targetLang) { ... }
 
-// ---------------------------------------------------------------------------
-// OpenAI adapter (uncomment and configure to use)
-// ---------------------------------------------------------------------------
-// async function openaiTranslate(
-//   text: string,
-//   targetLang: Language
-// ): Promise<TranslationResult> {
-//   const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
-//   const langName = targetLang === "en" ? "English" : "Spanish";
-//   const res = await fetch("https://api.openai.com/v1/chat/completions", {
-//     method: "POST",
-//     headers: {
-//       Authorization: `Bearer ${apiKey}`,
-//       "Content-Type": "application/json",
-//     },
-//     body: JSON.stringify({
-//       model: "gpt-4o",
-//       messages: [
-//         {
-//           role: "system",
-//           content: `You are a medical interpreter. Translate the following text to ${langName}. Return only the translated text, no explanations.`,
-//         },
-//         { role: "user", content: text },
-//       ],
-//       temperature: 0.1,
-//     }),
-//   });
-//   if (!res.ok) throw new Error(`OpenAI error: ${res.status}`);
-//   const data = await res.json();
-//   return { translatedText: data.choices[0].message.content.trim() };
-// }
+// ── OpenAI (swap in when ready) ──────────────────────────────────────────────
+// async function openaiTranslate(text, sourceLang, targetLang) { ... }
 
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
+// ── Public API ───────────────────────────────────────────────────────────────
 
 export async function translateText(
   text: string,
@@ -131,7 +111,7 @@ export async function translateText(
   targetLang: Language
 ): Promise<TranslationResult> {
   if (!text.trim()) return { translatedText: "" };
+  if (_limitReached)  throw new Error("LIMIT_REACHED");
 
-  // 🔌 To use a different provider, swap myMemoryTranslate with another adapter
   return await myMemoryTranslate(text, sourceLang, targetLang);
 }

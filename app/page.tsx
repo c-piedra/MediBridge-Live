@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { ControlBar } from "@/components/ControlBar";
 import { TranscriptPanel } from "@/components/TranscriptPanel";
-import { PrivacyNotice } from "@/components/PrivacyNotice";
+import { TranslationUsageBadge, TranslationLimitBanner } from "@/components/TranslationUsageBadge";
 
 export default function Home() {
   const {
@@ -73,19 +73,19 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Session badge */}
-          <div className="flex items-center gap-2 rounded-full border border-border bg-muted px-3 py-1 text-xs font-heading font-medium text-muted-foreground">
-            <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden="true" />
-            Solo sesión · Sin datos guardados
+          {/* Usage badge + session info */}
+          <div className="flex items-center gap-2">
+            <TranslationUsageBadge />
+            <div className="hidden items-center gap-2 rounded-full border border-border bg-muted px-3 py-1 text-xs font-heading font-medium text-muted-foreground sm:flex">
+              <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden="true" />
+              Solo sesión · Sin datos guardados
+            </div>
           </div>
         </div>
       </header>
 
       {/* ── Main ───────────────────────────────────────────────────────── */}
       <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-3 px-4 py-4 sm:px-6 sm:py-5">
-
-        {/* Privacy notice */}
-        <PrivacyNotice />
 
         {/* Error banner */}
         {errorMessage && (
@@ -99,6 +99,9 @@ export default function Home() {
             <p>{errorMessage}</p>
           </div>
         )}
+
+        {/* Limit banner — only visible when daily quota is exhausted */}
+        <TranslationLimitBanner />
 
         {/* Control bar */}
         <ControlBar
