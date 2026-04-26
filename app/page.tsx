@@ -4,7 +4,11 @@ import { useEffect } from "react";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { ControlBar } from "@/components/ControlBar";
 import { TranscriptPanel } from "@/components/TranscriptPanel";
-import { TranslationUsageBadge, TranslationLimitBanner } from "@/components/TranslationUsageBadge";
+import {
+  TranslationUsageBadge,
+  TranslationLimitBanner,
+  MyMemoryProgressBar,
+} from "@/components/TranslationUsageBadge";
 
 export default function Home() {
   const {
@@ -99,6 +103,9 @@ export default function Home() {
             <p>{errorMessage}</p>
           </div>
         )}
+
+        {/* MyMemory progress bar — only when using free fallback */}
+        <MyMemoryProgressBar />
 
         {/* Limit banner — only visible when daily quota is exhausted */}
         <TranslationLimitBanner />
